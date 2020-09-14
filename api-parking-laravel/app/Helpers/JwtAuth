@@ -1,0 +1,86 @@
+<?php
+
+namespace App\Helpers;
+
+
+use App\Http\Controllers\UserController;
+use App\User;
+use Firebase\JWT\JWT;
+use http\Env\Request;
+use Illuminate\Support\Facades\DB;
+use App\Login;
+
+use mysql_xdevapi\Table;
+
+class JwtAuth
+{
+
+    public $key;
+
+    /**
+     * JwtAuth constructor.
+     * @param $key
+     */
+
+    public function __construct()
+    {
+        $this->key = 'Clave_super_secreta-8977';
+
+    }
+
+    /**Buscar Si el Usuario con sus credenciales
+     *generar token con los datos del usuario autenticado
+     * @retur el token respecto al @param
+     **/
+    public function token($token)
+    {
+        $token = JWT::decode($token, $this->key, ['HS256']);
+        return $token;
+    }
+
+    public function signup($id, $password, $gettoken = null)
+    {
+        $login = Login::where('ID_USER', $id)->first();
+        $user = User::where('ID_USER', $id)->first();
+        if ($password != $login->PASSWORD)
+            return response()->json('Contraseña Incorrecta', 500);
+
+        $token = array(
+            'sub' => $login->ID_LOGIN,
+            'document' => $login->ID_USER,
+            'name' => $user->NAME,
+            'iat' => time(),
+            'exp' => time() + (52 * 7 * 24 * 60 * 60)
+        );
+        $jwt = JWT::encode($token, $this->key, 'HS256');
+        $decoded = JWT::decode($jwt, $this->key, ['HS256']);
+
+        if (is_null($gettoken)) {
+            $data = $jwt;
+        } else {
+            $data = $decoded;
+        }
+        return response()->json($data, 200);
+
+
+    }
+
+
+    public function checkToken($jwt, $getIdentity = false)
+    {
+        $auth = false;
+        try {
+            $decoded = JWT::decode($jwt, $this->key, ['HS256']);
+        } catch (\DomainException $ex) {
+            $auth = false;
+        }
+        if (!empty($decoded) && is_object($decoded) && isset($decoded->sub)) {
+            $auth = true;
+        } else {
+            $auth = false;
+        }
+        return $auth;
+    }
+
+
+}
